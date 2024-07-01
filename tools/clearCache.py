@@ -2,6 +2,8 @@ import os
 import shutil
 
 def clear_folder(folder_path='./static/cache'):
+    if not os.path.exists(folder_path):
+        os.makedirs(folder_path)
     for filename in os.listdir(folder_path):
         file_path = os.path.join(folder_path, filename)
         try:

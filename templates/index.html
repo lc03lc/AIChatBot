@@ -12,42 +12,57 @@
             max-width: 100%;
             height: auto;
         }
+        .history-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            border-bottom: 1px solid #ddd;
+            cursor: pointer;
+        }
+        .delete-button {
+            background-color: red;
+            color: white;
+            border: none;
+            padding: 2px 6px;
+            cursor: pointer;
+        }
     </style>
     <script>
         $(document).ready(function () {
             const socket = io();
-            const messages = [];
+            let messages = [];
             let assistantMessage = "";
             let isAssistant = false;
             let audio = null;
 
             function appendMessage(role, message, isImage = false, newMessage = false) {
                 const avatarUrl = role === 'user' ? '/static/user.png' : '/static/assistant.png';
-                let formattedMessage = formatMessage(message);
-                if (isImage) {
-                    formattedMessage = `<img src="data:image/png;base64,${message}" alt="Image">`;
-                }
+                let formattedMessage = formatMessage(message, isImage);
                 if (newMessage) {
-                    const messageElement = $(`
-                        <div class="message-container ${role}-container">
+                    const messageElement = $(
+                        `<div class="message-container ${role}-container">
                             <img src="${avatarUrl}" class="avatar">
                             <div class="message ${role}">
                                 ${formattedMessage}
                                 ${role === 'assistant' ? '<img src="/static/speaker.png" class="speaker-icon" onclick="playVoice(this)">' : ''}
                             </div>
-                        </div>
-                    `);
+                        </div>`
+                    );
                     $('#chat-box').append(messageElement);
                 } else {
-                    $('#chat-box').children('.message-container').last().find('.message').html(`
-                        ${formattedMessage}
-                        ${role === 'assistant' ? '<img src="/static/speaker.png" class="speaker-icon" onclick="playVoice(this)">' : ''}
-                    `);
+                    $('#chat-box').children('.message-container').last().find('.message').html(
+                        `${formattedMessage}
+                        ${role === 'assistant' ? '<img src="/static/speaker.png" class="speaker-icon" onclick="playVoice(this)">' : ''}`
+                    );
                 }
                 $('#chat-box').scrollTop($('#chat-box')[0].scrollHeight);
             }
 
-            function formatMessage(message) {
+            function formatMessage(message, isImage = false) {
+                if (isImage || message.length > 10000) {
+                    return `<img src="data:image/png;base64,${message}" alt="Image">`;
+                }
                 const formatted = message
                     .replace(/\n/g, '<br>')
                     .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')  // Bold
@@ -108,7 +123,6 @@
                 $('#input-box').val('');
             });
 
-
             $('#voice-icon').click(function () {
                 $.post('/voice2text', function (response) {
                     if (response.text) {
@@ -134,6 +148,83 @@
                 }
             });
 
+            function updateChatHistory(chats) {
+                $('#chat-history').empty();
+                chats.forEach(chat => {
+                    const chatItem = $(
+                        `<div class="history-item" data-id="${chat.id}">
+                            ${chat.timestamp}
+                            <button class="delete-button" data-id="${chat.id}">删除</button>
+                        </div>`
+                    );
+                    $('#chat-history').append(chatItem);
+                });
+            }
+
+            function loadChats() {
+                $.get('/load_chats', function (response) {
+                    updateChatHistory(response.chats);
+                });
+            }
+
+            function loadChat(chatId) {
+                $.get(`/load_chat/${chatId}`, function (response) {
+                    messages = response.messages;
+                    $('#chat-box').empty();
+                    messages.forEach(msg => {
+                        if (msg.content.length > 10000) {
+                            appendMessage(msg.role, msg.content, true, true);
+                        } else {
+                            appendMessage(msg.role, msg.content, false, true);
+                        }
+                    });
+                });
+            }
+
+            $('#save-history').click(function () {
+                const timestamp = new Date().toLocaleString();
+                const chatData = {
+                    timestamp: timestamp,
+                    messages: messages.filter((msg, index) => {
+                        // 过滤掉重复的逐字生成的部分，只保存完整的消息
+                        if (msg.role === 'assistant' && index > 0) {
+                            const prevMsg = messages[index - 1];
+                            return !(prevMsg.role === 'assistant' && prevMsg.content.includes(msg.content));
+                        }
+                        return true;
+                    })
+                };
+                $.ajax({
+                    url: '/save_chat',
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify(chatData),
+                    success: function (response) {
+                        loadChats();
+                        location.reload(); // 刷新页面
+                    }
+                });
+            });
+
+            $('#chat-history').on('click', '.history-item', function () {
+                const chatId = $(this).data('id');
+                loadChat(chatId);
+            });
+
+            $('#chat-history').on('click', '.delete-button', function (e) {
+                e.stopPropagation(); // 阻止事件冒泡
+                const chatId = $(this).data('id');
+                $.ajax({
+                    url: `/delete_chat/${chatId}`,
+                    type: 'DELETE',
+                    success: function (response) {
+                        loadChats();
+                    }
+                });
+            });
+
+            loadChats();
+
             socket.on('receive_message', function (data) {
                 if (data.role === 'user') {
                     appendMessage(data.role, data.content, data.isImage, true);
@@ -148,7 +239,14 @@
                     }
                 }
                 if (data.role === 'assistant') {
-                    messages.push({role: 'assistant', content: data.content});
+                    const lastMessage = messages[messages.length - 1];
+                    if (lastMessage && lastMessage.role === 'assistant') {
+                        lastMessage.content = assistantMessage;
+                    } else {
+                        messages.push({role: 'assistant', content: assistantMessage});
+                    }
+                } else {
+                    messages.push({role: data.role, content: data.content});
                 }
             });
 
@@ -180,26 +278,36 @@
     </script>
 </head>
 <body>
-<div class="chat-container">
-    <div class="header">
-        <select id="model-select">
-            <option value="Llama">Llama</option>
-            <option value="Llava">Llava</option>
-        </select>
+<div class="title-container">
+    <h1 class="title" onclick="window.location.reload()">智能音箱</h1>
+</div>
+<div class="main-container">
+    <div class="sidebar">
+        <h2>聊天记录</h2>
+        <div id="chat-history"></div>
+        <button id="save-history">保存当前聊天</button>
     </div>
-    <div id="chat-box" class="chat-box"></div>
-    <div class="input-container">
-        <input id="input-box" type="text" placeholder="请输入文本">
-        <input id="image-input" type="file" accept="image/*" style="display: none;">
-        <button class="icon-button" id="send-icon">
-            <img src="static/send.png" alt="发送消息">
-        </button>
-        <button class="icon-button" id="voice-icon">
-            <img src="static/voice.png" alt="语音输入">
-        </button>
-        <button class="icon-button" id="file-icon">
-            <img src="static/import.png" alt="发送图片">
-        </button>
+    <div class="chat-container">
+        <div class="header">
+            <select id="model-select">
+                <option value="Llama">Llama</option>
+                <option value="Llava">Llava</option>
+            </select>
+        </div>
+        <div id="chat-box" class="chat-box"></div>
+        <div class="input-container">
+            <input id="input-box" type="text" placeholder="请输入文本">
+            <input id="image-input" type="file" accept="image/*" style="display: none;">
+            <button class="icon-button" id="send-icon">
+                <img src="static/send.png" alt="发送消息">
+            </button>
+            <button class="icon-button" id="voice-icon">
+                <img src="static/voice.png" alt="语音输入">
+            </button>
+            <button class="icon-button" id="file-icon">
+                <img src="static/import.png" alt="发送图片">
+            </button>
+        </div>
     </div>
 </div>
 </body>
