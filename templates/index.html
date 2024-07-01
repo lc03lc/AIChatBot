@@ -40,21 +40,21 @@
                 const avatarUrl = role === 'user' ? '/static/user.png' : '/static/assistant.png';
                 let formattedMessage = formatMessage(message, isImage);
                 if (newMessage) {
-                    const messageElement = $(
-                        `<div class="message-container ${role}-container">
+                    const messageElement = $(`
+                        <div class="message-container ${role}-container">
                             <img src="${avatarUrl}" class="avatar">
                             <div class="message ${role}">
                                 ${formattedMessage}
                                 ${role === 'assistant' ? '<img src="/static/speaker.png" class="speaker-icon" onclick="playVoice(this)">' : ''}
                             </div>
-                        </div>`
-                    );
+                        </div>
+                    `);
                     $('#chat-box').append(messageElement);
                 } else {
-                    $('#chat-box').children('.message-container').last().find('.message').html(
-                        `${formattedMessage}
-                        ${role === 'assistant' ? '<img src="/static/speaker.png" class="speaker-icon" onclick="playVoice(this)">' : ''}`
-                    );
+                    $('#chat-box').children('.message-container').last().find('.message').html(`
+                        ${formattedMessage}
+                        ${role === 'assistant' ? '<img src="/static/speaker.png" class="speaker-icon" onclick="playVoice(this)">' : ''}
+                    `);
                 }
                 $('#chat-box').scrollTop($('#chat-box')[0].scrollHeight);
             }
@@ -151,12 +151,12 @@
             function updateChatHistory(chats) {
                 $('#chat-history').empty();
                 chats.forEach(chat => {
-                    const chatItem = $(
-                        `<div class="history-item" data-id="${chat.id}">
-                            ${chat.timestamp}
+                    const chatItem = $(`
+                        <div class="history-item" data-id="${chat.id}">
+                            <span>${chat.timestamp}</span>
                             <button class="delete-button" data-id="${chat.id}">删除</button>
-                        </div>`
-                    );
+                        </div>
+                    `);
                     $('#chat-history').append(chatItem);
                 });
             }
@@ -278,9 +278,6 @@
     </script>
 </head>
 <body>
-<div class="title-container">
-    <h1 class="title" onclick="window.location.reload()">智能音箱</h1>
-</div>
 <div class="main-container">
     <div class="sidebar">
         <h2>聊天记录</h2>
@@ -289,6 +286,7 @@
     </div>
     <div class="chat-container">
         <div class="header">
+            <h1 class="title">智能音箱</h1>
             <select id="model-select">
                 <option value="Llama">Llama</option>
                 <option value="Llava">Llava</option>
