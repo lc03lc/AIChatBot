@@ -14,15 +14,21 @@ body {
     display: flex;
     width: 100%;
     height: 100%;
-    justify-content: center; /* Center the chat container */
+    justify-content: center;
+}
+
+.sidebars-container {
+    display: flex;
+    flex-direction: column;
+    width: 300px;
+    margin: 40px;
+    gap: 20px;
 }
 
 .sidebar {
-    width: 300px;
     background-color: #fff;
     padding: 20px;
     overflow-y: auto;
-    margin: 40px;
     box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
     border-radius: 10px;
 }
@@ -69,7 +75,7 @@ body {
 }
 
 .chat-container {
-    width: 66%; /* Set chat container to 2/3 width */
+    width: 55%;
     display: flex;
     flex-direction: column;
     background-color: #fff;
@@ -193,6 +199,62 @@ body {
     border-radius: 10px;
 }
 
+.plugins-container {
+    background-color: #fff;
+    padding: 20px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    border-radius: 10px;
+}
+
+.plugins-container h2 {
+    margin-top: 0;
+    font-size: 1.2em;
+    color: #333;
+}
+
+.plugin-item {
+    margin-bottom: 10px;
+    padding: 10px 20px; /* 调整内边距以适应横向布局 */
+    background-color: #f7f8fa;
+    border-radius: 5px;
+    text-align: center;
+    display: flex;
+    flex-direction: row; /* 横向排列 */
+    align-items: center;
+    justify-content: center; /* 居中对齐 */
+}
+
+.plugin-item {
+    margin-bottom: 15px; /* 增加底部间距 */
+    padding: 15px 20px; /* 调整内边距 */
+    background-color: #f7f8fa;
+    border-radius: 10px; /* 增加圆角 */
+    text-align: center;
+    display: flex;
+    flex-direction: row; /* 横向排列 */
+    align-items: center;
+    justify-content: center; /* 居中对齐 */
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* 添加阴影效果 */
+    transition: background-color 0.3s, box-shadow 0.3s; /* 添加过渡效果 */
+}
+
+.plugin-item img {
+    width: 25px; /* 设置logo的宽度 */
+    height: 25px; /* 设置logo的高度 */
+    margin-right: 30px; /* 调整图片和标题之间的间距 */
+}
+
+.plugin-item span {
+    font-size: 1em; /* 设置标题的字体大小 */
+    color: #333; /* 设置标题的颜色 */
+}
+
+.plugin-item:hover {
+    background-color: #e0e0e0; /* 背景颜色变化 */
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2); /* 增强阴影效果 */
+}
+
+
 /* Responsive Design */
 @media (max-width: 600px) {
     .input-container {
@@ -210,5 +272,11 @@ body {
 
     .icon-button {
         margin-left: 0;
+    }
+
+    .sidebars-container {
+        width: 100%;
+        flex-direction: row;
+        justify-content: space-between;
     }
 }

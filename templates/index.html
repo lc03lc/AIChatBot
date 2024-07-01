@@ -12,6 +12,7 @@
             max-width: 100%;
             height: auto;
         }
+
         .history-item {
             display: flex;
             justify-content: space-between;
@@ -20,6 +21,7 @@
             border-bottom: 1px solid #ddd;
             cursor: pointer;
         }
+
         .delete-button {
             background-color: red;
             color: white;
@@ -27,9 +29,54 @@
             padding: 2px 6px;
             cursor: pointer;
         }
+
+        .plugin-item {
+            margin-bottom: 10px;
+            padding: 15px 20px; /* 调整内边距 */
+            background-color: #f7f8fa;
+            border-radius: 10px; /* 增加圆角 */
+            text-align: center;
+            display: flex;
+            flex-direction: row; /* 横向排列 */
+            align-items: center;
+            justify-content: center; /* 居中对齐 */
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); /* 添加阴影效果 */
+            transition: background-color 0.3s, box-shadow 0.3s; /* 添加过渡效果 */
+        }
+
+        .plugin-item img {
+            width: 25px; /* 设置logo的宽度 */
+            height: 25px; /* 设置logo的高度 */
+            margin-right: 20px; /* 调整图片和标题之间的间距 */
+        }
+
+        .plugin-item span {
+            font-size: 1em; /* 设置标题的字体大小 */
+            color: #333; /* 设置标题的颜色 */
+        }
+
+        .plugin-item:hover {
+            background-color: #e0e0e0; /* 背景颜色变化 */
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2); /* 增强阴影效果 */
+        }
     </style>
     <script>
         $(document).ready(function () {
+            // 设置默认标题为智能音箱
+            $('.title').text('智能音箱');
+
+            // 处理插件点击事件
+            $('#plugin-ai-speaker').click(function () {
+                $('.title').text('智能音箱');
+                // 在这里可以添加更多逻辑以处理智能音箱的功能
+            });
+
+            $('#plugin-image-analyse').click(function () {
+                $('.title').text('图像分析');
+                // 在这里可以添加更多逻辑以处理图像分析的功能
+            });
+
+            // 其他现有的代码
             const socket = io();
             let messages = [];
             let assistantMessage = "";
@@ -99,7 +146,6 @@
             $('#send-icon').click(function () {
                 const userMessage = $('#input-box').val();
                 const imageInput = $('#image-input')[0].files[0];
-                const model = $('#model-select').val();
 
                 if (userMessage.trim() === '' && !imageInput) {
                     return;
@@ -110,14 +156,13 @@
                         socket.emit('send_image', {
                             image: base64Image,
                             message: userMessage,
-                            messages: messages,
-                            model: model
+                            messages: messages
                         });
                         $('#image-input').val('');
                         $('#file-icon img').attr('src', 'static/import.png');  // Reset file icon after sending
                     });
                 } else {
-                    socket.emit('send_message', {message: userMessage, messages: messages, model: model});
+                    socket.emit('send_message', { message: userMessage, messages: messages });
                 }
 
                 $('#input-box').val('');
@@ -243,10 +288,10 @@
                     if (lastMessage && lastMessage.role === 'assistant') {
                         lastMessage.content = assistantMessage;
                     } else {
-                        messages.push({role: 'assistant', content: assistantMessage});
+                        messages.push({ role: 'assistant', content: assistantMessage });
                     }
                 } else {
-                    messages.push({role: data.role, content: data.content});
+                    messages.push({ role: data.role, content: data.content });
                 }
             });
 
@@ -263,7 +308,7 @@
                     audio = null;
                     $(element).attr('src', '/static/speaker.png');
                 } else {
-                    $.post('/text2voice', {text: message}, function (response) {
+                    $.post('/text2voice', { text: message }, function (response) {
                         audio = new Audio(response.audio_url);
                         audio.play();
                         $(element).attr('src', '/static/speaker-off.png');
@@ -279,18 +324,29 @@
 </head>
 <body>
 <div class="main-container">
-    <div class="sidebar">
-        <h2>聊天记录</h2>
-        <div id="chat-history"></div>
-        <button id="save-history">保存当前聊天</button>
+    <div class="sidebars-container">
+        <div class="sidebar plugins-sidebar">
+            <h2>插件列表</h2>
+            <div class="plugin-item" id="plugin-ai-speaker">
+                <img src="static/AI_Speaker.png" alt="插件1 Logo">
+                <span>智能音箱</span>
+            </div>
+            <div class="plugin-item" id="plugin-image-analyse">
+                <img src="static/image_analyse.png" alt="插件2 Logo">
+                <span>图像分析</span>
+            </div>
+        </div>
+        <div class="sidebar history-sidebar">
+            <div class="history-container">
+                <h2>聊天记录</h2>
+                <div id="chat-history"></div>
+                <button id="save-history">保存当前聊天</button>
+            </div>
+        </div>
     </div>
     <div class="chat-container">
         <div class="header">
             <h1 class="title">智能音箱</h1>
-            <select id="model-select">
-                <option value="Llama">Llama</option>
-                <option value="Llava">Llava</option>
-            </select>
         </div>
         <div id="chat-box" class="chat-box"></div>
         <div class="input-container">
