@@ -6,12 +6,14 @@ import os
 from tools.text2voice import text2voice
 from tools.clearCache import clear_folder
 from tools.voice2text import voice2text
+from tools.recommender import Recommend
+
 from Interact import Llama, Llava  # 导入新的Llava模块
 import uuid
 import base64
 import glob
 
-clear_folder()
+# clear_folder()
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.urandom(24)
@@ -19,9 +21,11 @@ socketio = SocketIO(app)
 
 CACHE_DIR = "static/cache"
 
+
 @app.route('/')
 def index():
     return render_template('index.html')
+
 
 @app.route('/text2voice', methods=['POST'])
 def text_to_voice_route():
@@ -29,6 +33,7 @@ def text_to_voice_route():
     audio_filename = f"{CACHE_DIR}/{uuid.uuid4()}.mp3"
     text2voice(text, audio_filename)
     return jsonify(audio_url=f'/{audio_filename}')
+
 
 @app.route('/voice2text', methods=['POST'])
 def voice_to_text_route():
@@ -38,6 +43,7 @@ def voice_to_text_route():
     except Exception as e:
         return jsonify(error=str(e)), 500
 
+
 @app.route('/save_chat', methods=['POST'])
 def save_chat():
     data = request.json
@@ -46,6 +52,7 @@ def save_chat():
     with open(chat_file, 'w', encoding='utf-8') as f:
         json.dump(data, f, ensure_ascii=False)
     return jsonify(chat_id=str(chat_id))
+
 
 @app.route('/load_chats', methods=['GET'])
 def load_chats():
@@ -58,6 +65,7 @@ def load_chats():
             chats.append({"id": chat_id, "timestamp": chat_data.get("timestamp", "未知时间")})
     return jsonify(chats=chats)
 
+
 @app.route('/load_chat/<chat_id>', methods=['GET'])
 def load_chat(chat_id):
     chat_file = f"{CACHE_DIR}/{chat_id}.txt"
@@ -68,6 +76,7 @@ def load_chat(chat_id):
     else:
         return jsonify(error="Chat not found"), 404
 
+
 @app.route('/delete_chat/<chat_id>', methods=['DELETE'])
 def delete_chat(chat_id):
     chat_file = f"{CACHE_DIR}/{chat_id}.txt"
@@ -76,6 +85,18 @@ def delete_chat(chat_id):
         return jsonify(success=True)
     else:
         return jsonify(error="Chat not found"), 404
+
+
+@app.route('/recommendations', methods=['POST'])
+def recommendations():
+    try:
+        data = request.json
+        latest_message = data.get('latest_message', '')
+        recommendations = Recommend(latest_message)
+        return jsonify(recommendations=recommendations)
+    except Exception as e:
+        return jsonify(error=str(e)), 500
+
 
 @socketio.on('send_message')
 def handle_send_message(data):
@@ -93,11 +114,14 @@ def handle_send_message(data):
     if model == 'Llava':
         for word in Llava.stream_model(messages):  # 使用Llava模块
             assistant_message += word
-            emit('receive_message', {'role': 'assistant', 'content': assistant_message, 'isImage': False}, broadcast=True)
+            emit('receive_message', {'role': 'assistant', 'content': assistant_message, 'isImage': False},
+                 broadcast=True)
     else:
         for word in Llama.stream_model(messages):  # 使用Llama模块
             assistant_message += word
-            emit('receive_message', {'role': 'assistant', 'content': assistant_message, 'isImage': False}, broadcast=True)
+            emit('receive_message', {'role': 'assistant', 'content': assistant_message, 'isImage': False},
+                 broadcast=True)
+
 
 @socketio.on('send_image')
 def handle_send_image(data):
@@ -125,11 +149,14 @@ def handle_send_image(data):
     if model == 'Llava':
         for word in Llava.stream_model(messages):  # 使用Llava模块
             assistant_message += word
-            emit('receive_message', {'role': 'assistant', 'content': assistant_message, 'isImage': False}, broadcast=True)
+            emit('receive_message', {'role': 'assistant', 'content': assistant_message, 'isImage': False},
+                 broadcast=True)
     else:
         for word in Llama.stream_model(messages):  # 使用Llama模块
             assistant_message += word
-            emit('receive_message', {'role': 'assistant', 'content': assistant_message, 'isImage': False}, broadcast=True)
+            emit('receive_message', {'role': 'assistant', 'content': assistant_message, 'isImage': False},
+                 broadcast=True)
+
 
 if __name__ == '__main__':
     socketio.run(app, debug=True)

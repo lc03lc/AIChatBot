@@ -254,6 +254,92 @@ body {
     box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2); /* 增强阴影效果 */
 }
 
+.message img {
+    max-width: 100%;
+    height: auto;
+}
+
+.history-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px;
+    border-bottom: 1px solid #ddd;
+    cursor: pointer;
+}
+
+.delete-button {
+    background-color: red;
+    color: white;
+    border: none;
+    padding: 2px 6px;
+    cursor: pointer;
+}
+
+.plugin-item {
+    margin-bottom: 10px;
+    padding: 15px 20px; /* 调整内边距 */
+    background-color: #f7f8fa;
+    border-radius: 10px; /* 增加圆角 */
+    text-align: center;
+    display: flex;
+    flex-direction: row; /* 横向排列 */
+    align-items: center;
+    justify-content: center; /* 居中对齐 */
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); /* 添加阴影效果 */
+    transition: background-color 0.3s, box-shadow 0.3s; /* 添加过渡效果 */
+}
+
+.plugin-item img {
+    width: 25px; /* 设置logo的宽度 */
+    height: 25px; /* 设置logo的高度 */
+    margin-right: 20px; /* 调整图片和标题之间的间距 */
+}
+
+.plugin-item span {
+    font-size: 1em; /* 设置标题的字体大小 */
+    color: #333; /* 设置标题的颜色 */
+}
+
+.plugin-item:hover {
+    background-color: #e0e0e0; /* 背景颜色变化 */
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2); /* 增强阴影效果 */
+}
+
+#recommendations-container {
+    display: flex;
+    align-items: center;
+    padding: 10px 20px;
+    background-color: #f7f8fa;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+#recommendations-container h3 {
+    margin: 0;
+    font-size: 1em;
+    color: #333;
+    margin-right: 10px;
+}
+
+#recommendations-list {
+    display: flex;
+    list-style-type: none;
+    padding: 0;
+    margin: 0;
+}
+
+#recommendations-list li {
+    margin-right: 10px;
+    padding: 5px;
+    font-size: 0.9em;
+    color: #007bff;
+    cursor: pointer;
+}
+
+#recommendations-list li:hover {
+    text-decoration: underline;
+}
+
 
 /* Responsive Design */
 @media (max-width: 600px) {
