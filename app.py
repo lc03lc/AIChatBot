@@ -94,6 +94,7 @@ def recommendations():
         recommendations = Recommend(latest_message)
         return jsonify(recommendations=recommendations)
     except Exception as e:
+        print(Exception)
         return jsonify(error=str(e)), 500
 
 

@@ -71,6 +71,7 @@ def extract_user_questions(cache_dir):
 
 
 def Recommend(latest_message=""):
+    print(latest_message)
     # 指定cache文件夹路径
     cache_dir = 'static/cache'
 

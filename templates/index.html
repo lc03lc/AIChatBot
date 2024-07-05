@@ -12,35 +12,45 @@
     <script>
         $(document).ready(function () {
             // 设置默认标题为智能音箱
-            $('.title').text('智能音箱');
+            const defaultPlugin = {
+                id: 'plugin-ai-speaker',
+                name: '智能音箱',
+                description: '智能音箱功能包括播放音乐、设置提醒、语音助手等。',
+                logo: 'static/AI_Speaker.png'
+            };
+
+            const savedPlugin = JSON.parse(localStorage.getItem('selectedPlugin')) || defaultPlugin;
+
+            $('.title').text(savedPlugin.name);
 
             function selectPlugin(pluginId) {
-                // 移除所有插件的选中状态
                 $('.plugin-item').removeClass('selected');
-                // 添加当前点击插件的选中状态
                 $(`#${pluginId}`).addClass('selected');
             }
 
             function updatePluginInfo(pluginName, pluginDescription, pluginLogo) {
                 $('#plugin-info').html(`
-<!--            <img src="${pluginLogo}" alt="${pluginName} Logo">-->
-            <div>
-                <h2><img src="${pluginLogo}" alt="${pluginName} Logo"> ${pluginName}</h2>
-                <p>${pluginDescription}</p>
-            </div>
-        `).show();
+                    <div>
+                        <h2><img src="${pluginLogo}" alt="${pluginName} Logo"> ${pluginName}</h2>
+                        <p>${pluginDescription}</p>
+                    </div>
+                `).show();
             }
 
             function hidePluginInfo() {
                 $('#plugin-info').hide();
             }
 
-            function saveChat() {
+            function saveChat(callback) {
+                if (messages.length === 0) {
+                    if (callback) callback();
+                    return;
+                }
+
                 const timestamp = new Date().toLocaleString();
                 const chatData = {
                     timestamp: timestamp,
                     messages: messages.filter((msg, index) => {
-                        // 过滤掉重复的逐字生成的部分，只保存完整的消息
                         if (msg.role === 'assistant' && index > 0) {
                             const prevMsg = messages[index - 1];
                             return !(prevMsg.role === 'assistant' && prevMsg.content.includes(msg.content));
@@ -48,32 +58,39 @@
                         return true;
                     })
                 };
+
+                if (chatData.messages.length === 0) {
+                    if (callback) callback();
+                    return;
+                }
+
                 $.ajax({
                     url: '/save_chat',
                     type: 'POST',
                     contentType: 'application/json',
                     data: JSON.stringify(chatData),
                     success: function (response) {
-                        location.reload(); // 刷新页面
+                        if (callback) callback();
                     }
                 });
             }
 
             function handlePluginClick(pluginId, pluginName, pluginDescription, pluginLogo) {
-                // 保存当前对话
-                saveChat();
-                // 更新插件信息
-                selectPlugin(pluginId);
-                updatePluginInfo(pluginName, pluginDescription, pluginLogo);
-                // 刷新页面
-                location.reload();
+                saveChat(function () {
+                    const selectedPlugin = {
+                        id: pluginId,
+                        name: pluginName,
+                        description: pluginDescription,
+                        logo: pluginLogo
+                    };
+                    localStorage.setItem('selectedPlugin', JSON.stringify(selectedPlugin));
+                    location.reload();
+                });
             }
 
-            // 页面加载时默认选中智能音箱插件
-            selectPlugin('plugin-ai-speaker');
-            updatePluginInfo('智能音箱', '智能音箱功能包括播放音乐、设置提醒、语音助手等。', 'static/AI_Speaker.png');
+            selectPlugin(savedPlugin.id);
+            updatePluginInfo(savedPlugin.name, savedPlugin.description, savedPlugin.logo);
 
-            // 处理插件点击事件
             $('#plugin-ai-speaker').click(function () {
                 handlePluginClick('plugin-ai-speaker', '智能音箱', '智能音箱功能包括播放音乐、设置提醒、语音助手等。', 'static/AI_Speaker.png');
             });
@@ -114,7 +131,32 @@
                 handlePluginClick('plugin-health-advice', '健康建议', '健康建议功能提供健康和健身相关的建议。', 'static/health_advice.png');
             });
 
-            // 处理发送消息按钮点击事件
+            $('#file-icon').click(function () {
+                $('#image-input').click();
+            });
+
+            $('#image-input').change(function () {
+                const file = this.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = function (e) {
+                        $('#file-icon img').attr('src', e.target.result); // 更新文件图标为图片预览
+                    };
+                    reader.readAsDataURL(file);
+                }
+            });
+
+            $('#voice-icon').click(function () {
+                $.post('/voice2text', function (response) {
+                    if (response.text) {
+                        $('#input-box').val(response.text);
+                    } else {
+                        alert(response.error);
+                    }
+                });
+            });
+
+
             $('#send-icon').click(function () {
                 const userMessage = $('#input-box').val();
                 const imageInput = $('#image-input')[0].files[0];
@@ -124,7 +166,7 @@
                     return;
                 }
 
-                hidePluginInfo(); // 隐藏插件信息
+                hidePluginInfo();
 
                 if (imageInput) {
                     resizeImage(imageInput, function (base64Image) {
@@ -146,7 +188,6 @@
                 $('#input-box').val('');
             });
 
-            // 其他现有的代码
             const socket = io();
             let messages = [];
             let assistantMessage = "";
@@ -158,20 +199,20 @@
                 let formattedMessage = formatMessage(message, isImage);
                 if (newMessage) {
                     const messageElement = $(`
-                    <div class="message-container ${role}-container">
-                        <img src="${avatarUrl}" class="avatar">
-                        <div class="message ${role}">
-                            ${formattedMessage}
-                            ${role === 'assistant' ? '<img src="/static/speaker.png" class="speaker-icon" onclick="playVoice(this)">' : ''}
+                        <div class="message-container ${role}-container">
+                            <img src="${avatarUrl}" class="avatar">
+                            <div class="message ${role}">
+                                ${formattedMessage}
+                                ${role === 'assistant' ? '<img src="/static/speaker.png" class="speaker-icon" onclick="playVoice(this)">' : ''}
+                            </div>
                         </div>
-                    </div>
-                `);
+                    `);
                     $('#chat-box').append(messageElement);
                 } else {
                     $('#chat-box').children('.message-container').last().find('.message').html(`
-                    ${formattedMessage}
-                    ${role === 'assistant' ? '<img src="/static/speaker.png" class="speaker-icon" onclick="playVoice(this)">' : ''}
-                `);
+                        ${formattedMessage}
+                        ${role === 'assistant' ? '<img src="/static/speaker.png" class="speaker-icon" onclick="playVoice(this)">' : ''}
+                    `);
                 }
                 $('#chat-box').scrollTop($('#chat-box')[0].scrollHeight);
             }
@@ -182,10 +223,10 @@
                 }
                 const formatted = message
                     .replace(/\n/g, '<br>')
-                    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')  // Bold
-                    .replace(/\*(.*?)\*/g, '<em>$1</em>')  // Italic
-                    .replace(/```(.*?)```/gs, '<pre><code>$1</code></pre>')  // Code block
-                    .replace(/`(.*?)`/g, '<code>$1</code>');  // Inline code
+                    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                    .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                    .replace(/```(.*?)```/gs, '<pre><code>$1</code></pre>')
+                    .replace(/`(.*?)`/g, '<code>$1</code>');
                 return `<p>${formatted}</p>`;
             }
 
@@ -236,47 +277,41 @@
                 });
             }
 
-            updateRecommendations(); // 初次加载页面时调用
+            updateRecommendations();
 
-            $('#send-icon').click(function () {
-                const userMessage = $('#input-box').val();
-                const imageInput = $('#image-input')[0].files[0];
-                const mode = $('.title').text();
-
-                if (userMessage.trim() === '' && !imageInput) {
-                    return;
-                }
-
-                if (imageInput) {
-                    resizeImage(imageInput, function (base64Image) {
-                        socket.emit('send_image', {
-                            image: base64Image,
-                            message: userMessage,
-                            messages: messages,
-                            mode: mode
-                        });
-                        $('#image-input').val('');
-                        $('#file-icon img').attr('src', 'static/import.png');
-                        updateRecommendations(userMessage);
-                    });
-                } else {
-                    socket.emit('send_message', {message: userMessage, messages: messages, mode: mode});
-                    updateRecommendations(userMessage);
-                }
-
-                $('#input-box').val('');
+            $('#save-history').click(function () {
+                const timestamp = new Date().toLocaleString();
+                const chatData = {
+                    timestamp: timestamp,
+                    messages: messages.filter((msg, index) => {
+                        if (msg.role === 'assistant' && index > 0) {
+                            const prevMsg = messages[index - 1];
+                            return !(prevMsg.role === 'assistant' && prevMsg.content.includes(msg.content));
+                        }
+                        return true;
+                    })
+                };
+                $.ajax({
+                    url: '/save_chat',
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify(chatData),
+                    success: function (response) {
+                        loadChats();
+                        location.reload();
+                    }
+                });
             });
-
 
             function updateChatHistory(chats) {
                 $('#chat-history').empty();
                 chats.forEach(chat => {
                     const chatItem = $(`
-                    <div class="history-item" data-id="${chat.id}">
-                        <span>${chat.timestamp}</span>
-                        <button class="delete-button" data-id="${chat.id}">删除</button>
-                    </div>
-                `);
+                        <div class="history-item" data-id="${chat.id}">
+                            <span>${chat.timestamp}</span>
+                            <button class="delete-button" data-id="${chat.id}">删除</button>
+                        </div>
+                    `);
                     $('#chat-history').append(chatItem);
                 });
             }
@@ -301,38 +336,13 @@
                 });
             }
 
-            $('#save-history').click(function () {
-                const timestamp = new Date().toLocaleString();
-                const chatData = {
-                    timestamp: timestamp,
-                    messages: messages.filter((msg, index) => {
-                        // 过滤掉重复的逐字生成的部分，只保存完整的消息
-                        if (msg.role === 'assistant' && index > 0) {
-                            const prevMsg = messages[index - 1];
-                            return !(prevMsg.role === 'assistant' && prevMsg.content.includes(msg.content));
-                        }
-                        return true;
-                    })
-                };
-                $.ajax({
-                    url: '/save_chat',
-                    type: 'POST',
-                    contentType: 'application/json',
-                    data: JSON.stringify(chatData),
-                    success: function (response) {
-                        loadChats();
-                        location.reload(); // 刷新页面
-                    }
-                });
-            });
-
             $('#chat-history').on('click', '.history-item', function () {
                 const chatId = $(this).data('id');
                 loadChat(chatId);
             });
 
             $('#chat-history').on('click', '.delete-button', function (e) {
-                e.stopPropagation(); // 阻止事件冒泡
+                e.stopPropagation();
                 const chatId = $(this).data('id');
                 $.ajax({
                     url: `/delete_chat/${chatId}`,
@@ -396,7 +406,6 @@
             }
         });
     </script>
-
 </head>
 <body>
 <div class="main-container">
@@ -443,7 +452,6 @@
                 <img src="static/health_advice.png" alt="插件10 Logo">
                 <span>健康建议</span>
             </div>
-
         </div>
         <div class="sidebar history-sidebar">
             <div class="history-container">
@@ -478,8 +486,6 @@
             </button>
         </div>
     </div>
-
-
 </div>
 </body>
 </html>
