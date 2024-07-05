@@ -1,17 +1,16 @@
-from flask import Flask, render_template, request, jsonify
-from flask_socketio import SocketIO, emit
-import requests
-import json
-import os
-from tools.text2voice import text2voice
-from tools.clearCache import clear_folder
-from tools.voice2text import voice2text
-from tools.recommender import Recommend
-
-from Interact import Llama, Llava  # 导入新的Llava模块
-import uuid
 import base64
 import glob
+import json
+import os
+import uuid
+
+from flask import Flask, render_template, request, jsonify
+from flask_socketio import SocketIO, emit
+
+from Interact import Llama, Llava  # 导入新的Llava模块
+from tools.recommender import Recommend
+from tools.text2voice import text2voice
+from tools.voice2text import voice2text
 
 # clear_folder()
 
@@ -102,22 +101,40 @@ def recommendations():
 def handle_send_message(data):
     messages = data['messages']
     user_message = data['message']
-    model = data.get('model', 'Llama')  # 获取前端传来的模型名称，默认为Llama
+    model = data.get('model', 'Llama')
+    mode = data.get('mode', 'default')  # 获取前端传来的模式，默认为default
 
     if not messages:
-        messages.append(Llama.create_message("system", "你现在扮演一个智能语音机器人，并且只能用中文交流。"))
+        if mode == 'kids':
+            messages.append(Llama.create_message("system", "你现在扮演一个智能语音机器人，并且只能用中文交流。你的目标用户是儿童，所以请用简单、友好和有趣的方式回答他们的问题。使用他们能够理解的词汇和语法，尽量多使用生动的描述和比喻。回答要积极、鼓励并充满热情。如果他们问到复杂的问题，请尝试用简单的例子和故事来解释。避免使用专业术语和过于复杂的语言，确保你的回答是安全和适龄的。"))
+        elif mode == 'language-translation':
+            messages.append(Llama.create_message("system", "你现在扮演一个语言翻译助手，可以将用户输入的文本翻译成指定的目标语言。"))
+        elif mode == 'news-update':
+            messages.append(Llama.create_message("system", "你现在扮演一个新闻助手，可以提供最新的新闻更新。请根据用户的需求提供相关的新闻内容。"))
+        elif mode == 'math-calculation':
+            messages.append(Llama.create_message("system", "你现在扮演一个数学助手，可以帮助用户进行各种数学计算。请提供详细的步骤和解释。"))
+        elif mode == 'recipe-recommendation':
+            messages.append(Llama.create_message("system", "你现在扮演一个食谱助手，可以根据用户提供的食材和偏好推荐食谱。请确保推荐的食谱简单易懂且易于操作。"))
+        elif mode == 'wiki-qa':
+            messages.append(Llama.create_message("system", "你现在扮演一个百科全书助手，可以回答各种知识问题。请确保你的回答准确且易于理解。"))
+        elif mode == 'entertainment-suggestions':
+            messages.append(Llama.create_message("system", "你现在扮演一个娱乐助手，可以根据用户的兴趣推荐电影、电视剧、音乐和书籍。请提供详细的推荐理由和信息。"))
+        elif mode == 'health-advice':
+            messages.append(Llama.create_message("system", "你现在扮演一个健康助手，可以提供健康和健身相关的建议。请确保你的建议科学且易于理解和操作。"))
+        else:
+            messages.append(Llama.create_message("system", "你现在扮演一个智能语音机器人，并且只能用中文交流。"))
 
     messages.append(Llama.create_message("user", user_message))
     emit('receive_message', {'role': 'user', 'content': user_message, 'isImage': False})
 
     assistant_message = ""
     if model == 'Llava':
-        for word in Llava.stream_model(messages):  # 使用Llava模块
+        for word in Llava.stream_model(messages):
             assistant_message += word
             emit('receive_message', {'role': 'assistant', 'content': assistant_message, 'isImage': False},
                  broadcast=True)
     else:
-        for word in Llama.stream_model(messages):  # 使用Llama模块
+        for word in Llama.stream_model(messages):
             assistant_message += word
             emit('receive_message', {'role': 'assistant', 'content': assistant_message, 'isImage': False},
                  broadcast=True)
@@ -127,11 +144,29 @@ def handle_send_message(data):
 def handle_send_image(data):
     messages = data['messages']
     image_base64 = data['image']
-    user_message = data['message']  # 获取用户消息
-    model = data.get('model', 'Llava')  # 获取前端传来的模型名称，默认为Llava
+    user_message = data['message']
+    model = data.get('model', 'Llava')
+    mode = data.get('mode', 'default')
 
     if not messages:
-        messages.append(Llama.create_message("system", "你现在扮演一个智能语音机器人，并且只能用中文交流。"))
+        if mode == 'kids':
+            messages.append(Llama.create_message("system", "你现在扮演一个智能语音机器人，并且只能用中文交流。你的目标用户是儿童，所以请用简单、友好和有趣的方式回答他们的问题。使用他们能够理解的词汇和语法，尽量多使用生动的描述和比喻。回答要积极、鼓励并充满热情。如果他们问到复杂的问题，请尝试用简单的例子和故事来解释。避免使用专业术语和过于复杂的语言，确保你的回答是安全和适龄的。"))
+        elif mode == 'language-translation':
+            messages.append(Llama.create_message("system", "你现在扮演一个语言翻译助手，可以将用户输入的文本翻译成指定的目标语言。"))
+        elif mode == 'news-update':
+            messages.append(Llama.create_message("system", "你现在扮演一个新闻助手，可以提供最新的新闻更新。请根据用户的需求提供相关的新闻内容。"))
+        elif mode == 'math-calculation':
+            messages.append(Llama.create_message("system", "你现在扮演一个数学助手，可以帮助用户进行各种数学计算。请提供详细的步骤和解释。"))
+        elif mode == 'recipe-recommendation':
+            messages.append(Llama.create_message("system", "你现在扮演一个食谱助手，可以根据用户提供的食材和偏好推荐食谱。请确保推荐的食谱简单易懂且易于操作。"))
+        elif mode == 'wiki-qa':
+            messages.append(Llama.create_message("system", "你现在扮演一个百科全书助手，可以回答各种知识问题。请确保你的回答准确且易于理解。"))
+        elif mode == 'entertainment-suggestions':
+            messages.append(Llama.create_message("system", "你现在扮演一个娱乐助手，可以根据用户的兴趣推荐电影、电视剧、音乐和书籍。请提供详细的推荐理由和信息。"))
+        elif mode == 'health-advice':
+            messages.append(Llama.create_message("system", "你现在扮演一个健康助手，可以提供健康和健身相关的建议。请确保你的建议科学且易于理解和操作。"))
+        else:
+            messages.append(Llama.create_message("system", "你现在扮演一个智能语音机器人，并且只能用中文交流。"))
 
     image_content = base64.b64decode(image_base64)
     image_path = f"{CACHE_DIR}/{uuid.uuid4()}.png"
@@ -147,16 +182,16 @@ def handle_send_image(data):
 
     assistant_message = ""
     if model == 'Llava':
-        for word in Llava.stream_model(messages):  # 使用Llava模块
+        for word in Llava.stream_model(messages):
             assistant_message += word
             emit('receive_message', {'role': 'assistant', 'content': assistant_message, 'isImage': False},
                  broadcast=True)
     else:
-        for word in Llama.stream_model(messages):  # 使用Llama模块
+        for word in Llama.stream_model(messages):
             assistant_message += word
             emit('receive_message', {'role': 'assistant', 'content': assistant_message, 'isImage': False},
                  broadcast=True)
 
 
 if __name__ == '__main__':
-    socketio.run(app, debug=True)
+    socketio.run(app, debug=True, allow_unsafe_werkzeug=True, host="0.0.0.0", port=5001)

@@ -14,15 +14,136 @@
             // 设置默认标题为智能音箱
             $('.title').text('智能音箱');
 
+            function selectPlugin(pluginId) {
+                // 移除所有插件的选中状态
+                $('.plugin-item').removeClass('selected');
+                // 添加当前点击插件的选中状态
+                $(`#${pluginId}`).addClass('selected');
+            }
+
+            function updatePluginInfo(pluginName, pluginDescription, pluginLogo) {
+                $('#plugin-info').html(`
+<!--            <img src="${pluginLogo}" alt="${pluginName} Logo">-->
+            <div>
+                <h2><img src="${pluginLogo}" alt="${pluginName} Logo"> ${pluginName}</h2>
+                <p>${pluginDescription}</p>
+            </div>
+        `).show();
+            }
+
+            function hidePluginInfo() {
+                $('#plugin-info').hide();
+            }
+
+            function saveChat() {
+                const timestamp = new Date().toLocaleString();
+                const chatData = {
+                    timestamp: timestamp,
+                    messages: messages.filter((msg, index) => {
+                        // 过滤掉重复的逐字生成的部分，只保存完整的消息
+                        if (msg.role === 'assistant' && index > 0) {
+                            const prevMsg = messages[index - 1];
+                            return !(prevMsg.role === 'assistant' && prevMsg.content.includes(msg.content));
+                        }
+                        return true;
+                    })
+                };
+                $.ajax({
+                    url: '/save_chat',
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify(chatData),
+                    success: function (response) {
+                        location.reload(); // 刷新页面
+                    }
+                });
+            }
+
+            function handlePluginClick(pluginId, pluginName, pluginDescription, pluginLogo) {
+                // 保存当前对话
+                saveChat();
+                // 更新插件信息
+                selectPlugin(pluginId);
+                updatePluginInfo(pluginName, pluginDescription, pluginLogo);
+                // 刷新页面
+                location.reload();
+            }
+
+            // 页面加载时默认选中智能音箱插件
+            selectPlugin('plugin-ai-speaker');
+            updatePluginInfo('智能音箱', '智能音箱功能包括播放音乐、设置提醒、语音助手等。', 'static/AI_Speaker.png');
+
             // 处理插件点击事件
             $('#plugin-ai-speaker').click(function () {
-                $('.title').text('智能音箱');
-                // 在这里可以添加更多逻辑以处理智能音箱的功能
+                handlePluginClick('plugin-ai-speaker', '智能音箱', '智能音箱功能包括播放音乐、设置提醒、语音助手等。', 'static/AI_Speaker.png');
             });
 
             $('#plugin-image-analyse').click(function () {
-                $('.title').text('图像分析');
-                // 在这里可以添加更多逻辑以处理图像分析的功能
+                handlePluginClick('plugin-image-analyse', '图像分析', '图像分析功能可以识别和描述图片中的内容。', 'static/image_analyse.png');
+            });
+
+            $('#plugin-kids-mode').click(function () {
+                handlePluginClick('plugin-kids-mode', '儿童模式', '儿童模式功能包括用简易和友好的方式与孩子交流。', 'static/kids_mode.png');
+            });
+
+            $('#plugin-language-translation').click(function () {
+                handlePluginClick('plugin-language-translation', '语言翻译', '语言翻译功能可以将文本翻译成多种语言。', 'static/language_translation.png');
+            });
+
+            $('#plugin-news-update').click(function () {
+                handlePluginClick('plugin-news-update', '新闻更新', '新闻更新功能提供最新的新闻资讯。', 'static/news_update.png');
+            });
+
+            $('#plugin-math-calculation').click(function () {
+                handlePluginClick('plugin-math-calculation', '数学计算', '数学计算功能可以进行各种数学运算。', 'static/math_calculation.png');
+            });
+
+            $('#plugin-recipe-recommendation').click(function () {
+                handlePluginClick('plugin-recipe-recommendation', '食谱推荐', '食谱推荐功能根据食材和偏好提供食谱建议。', 'static/recipe_recommendation.png');
+            });
+
+            $('#plugin-wiki-qa').click(function () {
+                handlePluginClick('plugin-wiki-qa', '百科问答', '百科问答功能可以回答各种知识问题。', 'static/wiki_qa.png');
+            });
+
+            $('#plugin-entertainment-suggestions').click(function () {
+                handlePluginClick('plugin-entertainment-suggestions', '娱乐建议', '娱乐建议功能根据兴趣推荐电影、电视剧、音乐和书籍。', 'static/entertainment_suggestions.png');
+            });
+
+            $('#plugin-health-advice').click(function () {
+                handlePluginClick('plugin-health-advice', '健康建议', '健康建议功能提供健康和健身相关的建议。', 'static/health_advice.png');
+            });
+
+            // 处理发送消息按钮点击事件
+            $('#send-icon').click(function () {
+                const userMessage = $('#input-box').val();
+                const imageInput = $('#image-input')[0].files[0];
+                const mode = $('.title').text();
+
+                if (userMessage.trim() === '' && !imageInput) {
+                    return;
+                }
+
+                hidePluginInfo(); // 隐藏插件信息
+
+                if (imageInput) {
+                    resizeImage(imageInput, function (base64Image) {
+                        socket.emit('send_image', {
+                            image: base64Image,
+                            message: userMessage,
+                            messages: messages,
+                            mode: mode
+                        });
+                        $('#image-input').val('');
+                        $('#file-icon img').attr('src', 'static/import.png');
+                        updateRecommendations(userMessage);
+                    });
+                } else {
+                    socket.emit('send_message', {message: userMessage, messages: messages, mode: mode});
+                    updateRecommendations(userMessage);
+                }
+
+                $('#input-box').val('');
             });
 
             // 其他现有的代码
@@ -120,6 +241,7 @@
             $('#send-icon').click(function () {
                 const userMessage = $('#input-box').val();
                 const imageInput = $('#image-input')[0].files[0];
+                const mode = $('.title').text();
 
                 if (userMessage.trim() === '' && !imageInput) {
                     return;
@@ -130,44 +252,21 @@
                         socket.emit('send_image', {
                             image: base64Image,
                             message: userMessage,
-                            messages: messages
+                            messages: messages,
+                            mode: mode
                         });
                         $('#image-input').val('');
-                        $('#file-icon img').attr('src', 'static/import.png');  // Reset file icon after sending
-                        updateRecommendations(userMessage); // 发送图片时更新猜你想搜内容
+                        $('#file-icon img').attr('src', 'static/import.png');
+                        updateRecommendations(userMessage);
                     });
                 } else {
-                    socket.emit('send_message', {message: userMessage, messages: messages});
-                    updateRecommendations(userMessage); // 发送文本时更新猜你想搜内容
+                    socket.emit('send_message', {message: userMessage, messages: messages, mode: mode});
+                    updateRecommendations(userMessage);
                 }
 
                 $('#input-box').val('');
             });
 
-            $('#voice-icon').click(function () {
-                $.post('/voice2text', function (response) {
-                    if (response.text) {
-                        $('#input-box').val(response.text);
-                    } else {
-                        alert(response.error);
-                    }
-                });
-            });
-
-            $('#file-icon').click(function () {
-                $('#image-input').click();
-            });
-
-            $('#image-input').change(function () {
-                const file = this.files[0];
-                if (file) {
-                    const reader = new FileReader();
-                    reader.onload = function (e) {
-                        $('#file-icon img').attr('src', e.target.result);
-                    };
-                    reader.readAsDataURL(file);
-                }
-            });
 
             function updateChatHistory(chats) {
                 $('#chat-history').empty();
@@ -312,6 +411,39 @@
                 <img src="static/image_analyse.png" alt="插件2 Logo">
                 <span>图像分析</span>
             </div>
+            <div class="plugin-item" id="plugin-kids-mode">
+                <img src="static/kids_mode.png" alt="插件3 Logo">
+                <span>儿童模式</span>
+            </div>
+            <div class="plugin-item" id="plugin-language-translation">
+                <img src="static/language_translation.png" alt="插件4 Logo">
+                <span>语言翻译</span>
+            </div>
+            <div class="plugin-item" id="plugin-news-update">
+                <img src="static/news_update.png" alt="插件5 Logo">
+                <span>新闻更新</span>
+            </div>
+            <div class="plugin-item" id="plugin-math-calculation">
+                <img src="static/math_calculation.png" alt="插件6 Logo">
+                <span>数学计算</span>
+            </div>
+            <div class="plugin-item" id="plugin-recipe-recommendation">
+                <img src="static/recipe_recommendation.png" alt="插件7 Logo">
+                <span>食谱推荐</span>
+            </div>
+            <div class="plugin-item" id="plugin-wiki-qa">
+                <img src="static/wiki_qa.png" alt="插件8 Logo">
+                <span>百科问答</span>
+            </div>
+            <div class="plugin-item" id="plugin-entertainment-suggestions">
+                <img src="static/entertainment_suggestions.png" alt="插件9 Logo">
+                <span>娱乐建议</span>
+            </div>
+            <div class="plugin-item" id="plugin-health-advice">
+                <img src="static/health_advice.png" alt="插件10 Logo">
+                <span>健康建议</span>
+            </div>
+
         </div>
         <div class="sidebar history-sidebar">
             <div class="history-container">
@@ -325,13 +457,13 @@
         <div class="header">
             <h1 class="title">智能音箱</h1>
         </div>
-        <div id="chat-box" class="chat-box"></div>
+        <div id="chat-box" class="chat-box">
+            <div id="plugin-info" class="plugin-info"></div>
+        </div>
         <div id="recommendations-container">
             <h3>猜你想搜:</h3>
             <ul id="recommendations-list"></ul>
         </div>
-
-
         <div class="input-container">
             <input id="input-box" type="text" placeholder="请输入文本">
             <input id="image-input" type="file" accept="image/*" style="display: none;">
@@ -346,6 +478,8 @@
             </button>
         </div>
     </div>
+
+
 </div>
 </body>
 </html>

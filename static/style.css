@@ -25,13 +25,26 @@ body {
     gap: 20px;
 }
 
+/* 隐藏滚动条但保留滚动功能 */
 .sidebar {
     background-color: #fff;
     padding: 20px;
-    overflow-y: auto;
+    overflow-y: scroll; /* 保持滚动功能 */
     box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
     border-radius: 10px;
+    max-height: 45%;
 }
+
+/* 针对Webkit内核浏览器 (如Chrome, Safari) 隐藏滚动条 */
+.sidebar::-webkit-scrollbar {
+    display: none; /* 隐藏滚动条 */
+}
+
+/* 针对Firefox浏览器 隐藏滚动条 */
+.sidebar {
+    scrollbar-width: none; /* 隐藏滚动条 */
+}
+
 
 .sidebar h2 {
     margin-top: 0;
@@ -366,3 +379,34 @@ body {
         justify-content: space-between;
     }
 }
+
+.plugin-item.selected {
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4); /* 添加阴影效果 */
+    border: 2px solid #000000; /* 选中时的边框颜色为黑色 */
+    transition: box-shadow 0.3s, border 0.3s; /* 过渡效果 */
+}
+
+.plugin-info {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+    color: #888;
+    font-size: 1.2em;
+    text-align: center;
+    flex-direction: column;
+}
+
+.plugin-info img {
+    width: 50px; /* 根据需要调整logo的大小 */
+    height: 50px; /* 根据需要调整logo的大小 */
+    margin-bottom: 10px; /* 调整图片和标题之间的间距 */
+}
+
+.plugin-info h2 {
+    display: flex;
+    align-items: center;
+    gap: 10px; /* 调整图标和标题之间的间距 */
+}
+
+
