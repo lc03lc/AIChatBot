@@ -7,405 +7,6 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <style>
-    </style>
-    <script>
-        $(document).ready(function () {
-            // 设置默认标题为智能音箱
-            const defaultPlugin = {
-                id: 'plugin-ai-speaker',
-                name: '智能音箱',
-                description: '智能音箱功能包括播放音乐、设置提醒、语音助手等。',
-                logo: 'static/AI_Speaker.png'
-            };
-
-            const savedPlugin = JSON.parse(localStorage.getItem('selectedPlugin')) || defaultPlugin;
-
-            $('.title').text(savedPlugin.name);
-
-            function selectPlugin(pluginId) {
-                $('.plugin-item').removeClass('selected');
-                $(`#${pluginId}`).addClass('selected');
-            }
-
-            function updatePluginInfo(pluginName, pluginDescription, pluginLogo) {
-                $('#plugin-info').html(`
-                    <div>
-                        <h2><img src="${pluginLogo}" alt="${pluginName} Logo"> ${pluginName}</h2>
-                        <p>${pluginDescription}</p>
-                    </div>
-                `).show();
-            }
-
-            function hidePluginInfo() {
-                $('#plugin-info').hide();
-            }
-
-            function saveChat(callback) {
-                if (messages.length === 0) {
-                    if (callback) callback();
-                    return;
-                }
-
-                const timestamp = new Date().toLocaleString();
-                const chatData = {
-                    timestamp: timestamp,
-                    messages: messages.filter((msg, index) => {
-                        if (msg.role === 'assistant' && index > 0) {
-                            const prevMsg = messages[index - 1];
-                            return !(prevMsg.role === 'assistant' && prevMsg.content.includes(msg.content));
-                        }
-                        return true;
-                    })
-                };
-
-                if (chatData.messages.length === 0) {
-                    if (callback) callback();
-                    return;
-                }
-
-                $.ajax({
-                    url: '/save_chat',
-                    type: 'POST',
-                    contentType: 'application/json',
-                    data: JSON.stringify(chatData),
-                    success: function (response) {
-                        if (callback) callback();
-                    }
-                });
-            }
-
-            function handlePluginClick(pluginId, pluginName, pluginDescription, pluginLogo) {
-                saveChat(function () {
-                    const selectedPlugin = {
-                        id: pluginId,
-                        name: pluginName,
-                        description: pluginDescription,
-                        logo: pluginLogo
-                    };
-                    localStorage.setItem('selectedPlugin', JSON.stringify(selectedPlugin));
-                    location.reload();
-                });
-            }
-
-            selectPlugin(savedPlugin.id);
-            updatePluginInfo(savedPlugin.name, savedPlugin.description, savedPlugin.logo);
-
-            $('#plugin-ai-speaker').click(function () {
-                handlePluginClick('plugin-ai-speaker', '智能音箱', '智能音箱功能包括播放音乐、设置提醒、语音助手等。', 'static/AI_Speaker.png');
-            });
-
-            $('#plugin-image-analyse').click(function () {
-                handlePluginClick('plugin-image-analyse', '图像分析', '图像分析功能可以识别和描述图片中的内容。', 'static/image_analyse.png');
-            });
-
-            $('#plugin-kids-mode').click(function () {
-                handlePluginClick('plugin-kids-mode', '儿童模式', '儿童模式功能包括用简易和友好的方式与孩子交流。', 'static/kids_mode.png');
-            });
-
-            $('#plugin-language-translation').click(function () {
-                handlePluginClick('plugin-language-translation', '语言翻译', '语言翻译功能可以将文本翻译成多种语言。', 'static/language_translation.png');
-            });
-
-            $('#plugin-news-update').click(function () {
-                handlePluginClick('plugin-news-update', '新闻更新', '新闻更新功能提供最新的新闻资讯。', 'static/news_update.png');
-            });
-
-            $('#plugin-math-calculation').click(function () {
-                handlePluginClick('plugin-math-calculation', '数学计算', '数学计算功能可以进行各种数学运算。', 'static/math_calculation.png');
-            });
-
-            $('#plugin-recipe-recommendation').click(function () {
-                handlePluginClick('plugin-recipe-recommendation', '食谱推荐', '食谱推荐功能根据食材和偏好提供食谱建议。', 'static/recipe_recommendation.png');
-            });
-
-            $('#plugin-wiki-qa').click(function () {
-                handlePluginClick('plugin-wiki-qa', '百科问答', '百科问答功能可以回答各种知识问题。', 'static/wiki_qa.png');
-            });
-
-            $('#plugin-entertainment-suggestions').click(function () {
-                handlePluginClick('plugin-entertainment-suggestions', '娱乐建议', '娱乐建议功能根据兴趣推荐电影、电视剧、音乐和书籍。', 'static/entertainment_suggestions.png');
-            });
-
-            $('#plugin-health-advice').click(function () {
-                handlePluginClick('plugin-health-advice', '健康建议', '健康建议功能提供健康和健身相关的建议。', 'static/health_advice.png');
-            });
-
-            $('#file-icon').click(function () {
-                $('#image-input').click();
-            });
-
-            $('#image-input').change(function () {
-                const file = this.files[0];
-                if (file) {
-                    const reader = new FileReader();
-                    reader.onload = function (e) {
-                        $('#file-icon img').attr('src', e.target.result); // 更新文件图标为图片预览
-                    };
-                    reader.readAsDataURL(file);
-                }
-            });
-
-            $('#voice-icon').click(function () {
-                $.post('/voice2text', function (response) {
-                    if (response.text) {
-                        $('#input-box').val(response.text);
-                    } else {
-                        alert(response.error);
-                    }
-                });
-            });
-
-
-            $('#send-icon').click(function () {
-                const userMessage = $('#input-box').val();
-                const imageInput = $('#image-input')[0].files[0];
-                const mode = $('.title').text();
-
-                if (userMessage.trim() === '' && !imageInput) {
-                    return;
-                }
-
-                hidePluginInfo();
-
-                if (imageInput) {
-                    resizeImage(imageInput, function (base64Image) {
-                        socket.emit('send_image', {
-                            image: base64Image,
-                            message: userMessage,
-                            messages: messages,
-                            mode: mode
-                        });
-                        $('#image-input').val('');
-                        $('#file-icon img').attr('src', 'static/import.png');
-                        updateRecommendations(userMessage);
-                    });
-                } else {
-                    socket.emit('send_message', {message: userMessage, messages: messages, mode: mode});
-                    updateRecommendations(userMessage);
-                }
-
-                $('#input-box').val('');
-            });
-
-            const socket = io();
-            let messages = [];
-            let assistantMessage = "";
-            let isAssistant = false;
-            let audio = null;
-
-            function appendMessage(role, message, isImage = false, newMessage = false) {
-                const avatarUrl = role === 'user' ? '/static/user.png' : '/static/assistant.png';
-                let formattedMessage = formatMessage(message, isImage);
-                if (newMessage) {
-                    const messageElement = $(`
-                        <div class="message-container ${role}-container">
-                            <img src="${avatarUrl}" class="avatar">
-                            <div class="message ${role}">
-                                ${formattedMessage}
-                                ${role === 'assistant' ? '<img src="/static/speaker.png" class="speaker-icon" onclick="playVoice(this)">' : ''}
-                            </div>
-                        </div>
-                    `);
-                    $('#chat-box').append(messageElement);
-                } else {
-                    $('#chat-box').children('.message-container').last().find('.message').html(`
-                        ${formattedMessage}
-                        ${role === 'assistant' ? '<img src="/static/speaker.png" class="speaker-icon" onclick="playVoice(this)">' : ''}
-                    `);
-                }
-                $('#chat-box').scrollTop($('#chat-box')[0].scrollHeight);
-            }
-
-            function formatMessage(message, isImage = false) {
-                if (isImage || message.length > 10000) {
-                    return `<img src="data:image/png;base64,${message}" alt="Image">`;
-                }
-                const formatted = message
-                    .replace(/\n/g, '<br>')
-                    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                    .replace(/\*(.*?)\*/g, '<em>$1</em>')
-                    .replace(/```(.*?)```/gs, '<pre><code>$1</code></pre>')
-                    .replace(/`(.*?)`/g, '<code>$1</code>');
-                return `<p>${formatted}</p>`;
-            }
-
-            function resizeImage(file, callback) {
-                const maxWidth = $('#chat-box').width() * (2 / 3);
-                const reader = new FileReader();
-                reader.onload = function (event) {
-                    const img = new Image();
-                    img.onload = function () {
-                        const canvas = document.createElement('canvas');
-                        const ctx = canvas.getContext('2d');
-                        if (img.width > maxWidth) {
-                            const scale = maxWidth / img.width;
-                            canvas.width = maxWidth;
-                            canvas.height = img.height * scale;
-                        } else {
-                            canvas.width = img.width;
-                            canvas.height = img.height;
-                        }
-                        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                        callback(canvas.toDataURL('image/png').split(',')[1]);
-                    };
-                    img.src = event.target.result;
-                };
-                reader.readAsDataURL(file);
-            }
-
-            function updateRecommendations(latestMessage) {
-                $.ajax({
-                    url: '/recommendations',
-                    type: 'POST',
-                    contentType: 'application/json',
-                    data: JSON.stringify({latest_message: latestMessage}),
-                    success: function (response) {
-                        if (response.recommendations) {
-                            $('#recommendations-list').empty();
-                            response.recommendations.forEach(function (recommendation) {
-                                const recommendationItem = $('<li>').text(recommendation);
-                                recommendationItem.click(function () {
-                                    $('#input-box').val($(this).text());
-                                });
-                                $('#recommendations-list').append(recommendationItem);
-                            });
-                        } else {
-                            $('#recommendations-list').empty().append($('<li>').text('暂无推荐'));
-                        }
-                    }
-                });
-            }
-
-            updateRecommendations();
-
-            $('#save-history').click(function () {
-                const timestamp = new Date().toLocaleString();
-                const chatData = {
-                    timestamp: timestamp,
-                    messages: messages.filter((msg, index) => {
-                        if (msg.role === 'assistant' && index > 0) {
-                            const prevMsg = messages[index - 1];
-                            return !(prevMsg.role === 'assistant' && prevMsg.content.includes(msg.content));
-                        }
-                        return true;
-                    })
-                };
-                $.ajax({
-                    url: '/save_chat',
-                    type: 'POST',
-                    contentType: 'application/json',
-                    data: JSON.stringify(chatData),
-                    success: function (response) {
-                        loadChats();
-                        location.reload();
-                    }
-                });
-            });
-
-            function updateChatHistory(chats) {
-                $('#chat-history').empty();
-                chats.forEach(chat => {
-                    const chatItem = $(`
-                        <div class="history-item" data-id="${chat.id}">
-                            <span>${chat.timestamp}</span>
-                            <button class="delete-button" data-id="${chat.id}">删除</button>
-                        </div>
-                    `);
-                    $('#chat-history').append(chatItem);
-                });
-            }
-
-            function loadChats() {
-                $.get('/load_chats', function (response) {
-                    updateChatHistory(response.chats);
-                });
-            }
-
-            function loadChat(chatId) {
-                $.get(`/load_chat/${chatId}`, function (response) {
-                    messages = response.messages;
-                    $('#chat-box').empty();
-                    messages.forEach(msg => {
-                        if (msg.content.length > 10000) {
-                            appendMessage(msg.role, msg.content, true, true);
-                        } else {
-                            appendMessage(msg.role, msg.content, false, true);
-                        }
-                    });
-                });
-            }
-
-            $('#chat-history').on('click', '.history-item', function () {
-                const chatId = $(this).data('id');
-                loadChat(chatId);
-            });
-
-            $('#chat-history').on('click', '.delete-button', function (e) {
-                e.stopPropagation();
-                const chatId = $(this).data('id');
-                $.ajax({
-                    url: `/delete_chat/${chatId}`,
-                    type: 'DELETE',
-                    success: function (response) {
-                        loadChats();
-                    }
-                });
-            });
-
-            loadChats();
-
-            socket.on('receive_message', function (data) {
-                if (data.role === 'user') {
-                    appendMessage(data.role, data.content, data.isImage, true);
-                    isAssistant = true;
-                } else {
-                    assistantMessage = data.content;
-                    if (isAssistant) {
-                        appendMessage(data.role, assistantMessage, data.isImage, true);
-                        isAssistant = false;
-                    } else {
-                        appendMessage(data.role, assistantMessage, data.isImage);
-                    }
-                }
-                if (data.role === 'assistant') {
-                    const lastMessage = messages[messages.length - 1];
-                    if (lastMessage && lastMessage.role === 'assistant') {
-                        lastMessage.content = assistantMessage;
-                    } else {
-                        messages.push({role: 'assistant', content: assistantMessage});
-                    }
-                } else {
-                    messages.push({role: data.role, content: data.content});
-                }
-            });
-
-            $('#input-box').keypress(function (e) {
-                if (e.which === 13) {
-                    $('#send-icon').click();
-                }
-            });
-
-            window.playVoice = function (element) {
-                const message = $(element).closest('.message').text();
-                if (audio) {
-                    audio.pause();
-                    audio = null;
-                    $(element).attr('src', '/static/speaker.png');
-                } else {
-                    $.post('/text2voice', {text: message}, function (response) {
-                        audio = new Audio(response.audio_url);
-                        audio.play();
-                        $(element).attr('src', '/static/speaker-off.png');
-                        audio.onended = function () {
-                            audio = null;
-                            $(element).attr('src', '/static/speaker.png');
-                        }
-                    });
-                }
-            }
-        });
-    </script>
 </head>
 <body>
 <div class="main-container">
@@ -487,5 +88,438 @@
         </div>
     </div>
 </div>
+
+<script>
+    $(document).ready(function () {
+        // 设置默认标题为智能音箱
+        const defaultPlugin = {
+            id: 'plugin-ai-speaker',
+            name: '智能音箱',
+            description: '智能音箱功能包括播放音乐、设置提醒、语音助手等。',
+            logo: 'static/AI_Speaker.png'
+        };
+
+        const savedPlugin = JSON.parse(localStorage.getItem('selectedPlugin')) || defaultPlugin;
+
+        $('.title').text(savedPlugin.name);
+
+        function selectPlugin(pluginId) {
+            $('.plugin-item').removeClass('selected');
+            $(`#${pluginId}`).addClass('selected');
+        }
+
+        function updatePluginInfo(pluginName, pluginDescription, pluginLogo) {
+            $('#plugin-info').html(`
+                <div>
+                    <h2><img src="${pluginLogo}" alt="${pluginName} Logo"> ${pluginName}</h2>
+                    <p>${pluginDescription}</p>
+                </div>
+            `).show();
+        }
+
+        function hidePluginInfo() {
+            $('#plugin-info').hide();
+        }
+
+        function saveChat(callback) {
+            if (messages.length === 0) {
+                if (callback) callback();
+                return;
+            }
+
+            const timestamp = new Date().toLocaleString();
+            const chatData = {
+                timestamp: timestamp,
+                messages: messages.filter((msg, index) => {
+                    if (msg.role === 'assistant' && index > 0) {
+                        const prevMsg = messages[index - 1];
+                        return !(prevMsg.role === 'assistant' && prevMsg.content.includes(msg.content));
+                    }
+                    return true;
+                })
+            };
+
+            if (chatData.messages.length === 0) {
+                if (callback) callback();
+                return;
+            }
+
+            $.ajax({
+                url: '/save_chat',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify(chatData),
+                success: function (response) {
+                    if (callback) callback();
+                }
+            });
+        }
+
+        function handlePluginClick(pluginId, pluginName, pluginDescription, pluginLogo) {
+            saveChat(function () {
+                const selectedPlugin = {
+                    id: pluginId,
+                    name: pluginName,
+                    description: pluginDescription,
+                    logo: pluginLogo
+                };
+                localStorage.setItem('selectedPlugin', JSON.stringify(selectedPlugin));
+                location.reload();
+            });
+        }
+
+        selectPlugin(savedPlugin.id);
+        updatePluginInfo(savedPlugin.name, savedPlugin.description, savedPlugin.logo);
+
+        $('#plugin-ai-speaker').click(function () {
+            handlePluginClick('plugin-ai-speaker', '智能音箱', '智能音箱功能包括播放音乐、设置提醒、语音助手等。', 'static/AI_Speaker.png');
+        });
+
+        $('#plugin-image-analyse').click(function () {
+            handlePluginClick('plugin-image-analyse', '图像分析', '图像分析功能可以识别和描述图片中的内容。', 'static/image_analyse.png');
+        });
+
+        $('#plugin-kids-mode').click(function () {
+            handlePluginClick('plugin-kids-mode', '儿童模式', '儿童模式功能包括用简易和友好的方式与孩子交流。', 'static/kids_mode.png');
+        });
+
+        $('#plugin-language-translation').click(function () {
+            handlePluginClick('plugin-language-translation', '语言翻译', '语言翻译功能可以将文本翻译成多种语言。', 'static/language_translation.png');
+        });
+
+        $('#plugin-news-update').click(function () {
+            handlePluginClick('plugin-news-update', '新闻更新', '新闻更新功能提供最新的新闻资讯。', 'static/news_update.png');
+        });
+
+        $('#plugin-math-calculation').click(function () {
+            handlePluginClick('plugin-math-calculation', '数学计算', '数学计算功能可以进行各种数学运算。', 'static/math_calculation.png');
+        });
+
+        $('#plugin-recipe-recommendation').click(function () {
+            handlePluginClick('plugin-recipe-recommendation', '食谱推荐', '食谱推荐功能根据食材和偏好提供食谱建议。', 'static/recipe_recommendation.png');
+        });
+
+        $('#plugin-wiki-qa').click(function () {
+            handlePluginClick('plugin-wiki-qa', '百科问答', '百科问答功能可以回答各种知识问题。', 'static/wiki_qa.png');
+        });
+
+        $('#plugin-entertainment-suggestions').click(function () {
+            handlePluginClick('plugin-entertainment-suggestions', '娱乐建议', '娱乐建议功能根据兴趣推荐电影、电视剧、音乐和书籍。', 'static/entertainment_suggestions.png');
+        });
+
+        $('#plugin-health-advice').click(function () {
+            handlePluginClick('plugin-health-advice', '健康建议', '健康建议功能提供健康和健身相关的建议。', 'static/health_advice.png');
+        });
+
+        $('#file-icon').click(function () {
+            $('#image-input').click();
+        });
+
+        $('#image-input').change(function () {
+            const file = this.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function (e) {
+                    $('#file-icon img').attr('src', e.target.result); // 更新文件图标为图片预览
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        $('#voice-icon').click(function () {
+            $.post('/voice2text', function (response) {
+                if (response.text) {
+                    $('#input-box').val(response.text);
+                } else {
+                    alert(response.error);
+                }
+            });
+        });
+
+
+        $('#send-icon').click(function () {
+            const userMessage = $('#input-box').val();
+            const imageInput = $('#image-input')[0].files[0];
+            const mode = $('.title').text();
+
+            if (userMessage.trim() === '' && !imageInput) {
+                return;
+            }
+
+            hidePluginInfo();
+
+            if (imageInput) {
+                resizeImage(imageInput, function (base64Image) {
+                    socket.emit('send_image', {
+                        image: base64Image,
+                        message: userMessage,
+                        messages: messages,
+                        mode: mode
+                    });
+                    $('#image-input').val('');
+                    $('#file-icon img').attr('src', 'static/import.png');
+                    updateRecommendations(userMessage);
+                });
+            } else {
+                socket.emit('send_message', {message: userMessage, messages: messages, mode: mode});
+                updateRecommendations(userMessage);
+            }
+
+            $('#input-box').val('');
+        });
+
+        const socket = io();
+        let messages = [];
+        let assistantMessage = "";
+        let isAssistant = false;
+        let audio = null;
+
+        function appendMessage(role, message, isImage = false, newMessage = false) {
+            const avatarUrl = role === 'user' ? '/static/user.png' : '/static/assistant.png';
+            let formattedMessage = formatMessage(message, isImage);
+            if (newMessage) {
+                const messageElement = $(`
+                    <div class="message-container ${role}-container">
+                        <img src="${avatarUrl}" class="avatar">
+                        <div class="message ${role}">
+                            ${formattedMessage}
+                            ${role === 'assistant' ? '<img src="/static/speaker.png" class="speaker-icon" onclick="playVoice(this)">' : ''}
+                        </div>
+                    </div>
+                `);
+                $('#chat-box').append(messageElement);
+            } else {
+                $('#chat-box').children('.message-container').last().find('.message').html(`
+                    ${formattedMessage}
+                    ${role === 'assistant' ? '<img src="/static/speaker.png" class="speaker-icon" onclick="playVoice(this)">' : ''}
+                `);
+            }
+            $('#chat-box').scrollTop($('#chat-box')[0].scrollHeight);
+        }
+
+        function formatMessage(message, isImage = false) {
+            if (isImage || message.length > 10000) {
+                return `<img src="data:image/png;base64,${message}" alt="Image">`;
+            }
+            const formatted = message
+                .replace(/\n/g, '<br>')
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                .replace(/```(.*?)```/gs, '<pre><code>$1</code></pre>')
+                .replace(/`(.*?)`/g, '<code>$1</code>');
+            return `<p>${formatted}</p>`;
+        }
+
+        function resizeImage(file, callback) {
+            const maxWidth = $('#chat-box').width() * (2 / 3);
+            const reader = new FileReader();
+            reader.onload = function (event) {
+                const img = new Image();
+                img.onload = function () {
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    if (img.width > maxWidth) {
+                        const scale = maxWidth / img.width;
+                        canvas.width = maxWidth;
+                        canvas.height = img.height * scale;
+                    } else {
+                        canvas.width = img.width;
+                        canvas.height = img.height;
+                    }
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                    callback(canvas.toDataURL('image/png').split(',')[1]);
+                };
+                img.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function updateRecommendations(latestMessage) {
+            $.ajax({
+                url: '/recommendations',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({latest_message: latestMessage}),
+                success: function (response) {
+                    if (response.recommendations) {
+                        $('#recommendations-list').empty();
+                        response.recommendations.forEach(function (recommendation) {
+                            const recommendationItem = $('<li>').text(recommendation);
+                            recommendationItem.click(function () {
+                                $('#input-box').val($(this).text());
+                            });
+                            $('#recommendations-list').append(recommendationItem);
+                        });
+                    } else {
+                        $('#recommendations-list').empty().append($('<li>').text('暂无推荐'));
+                    }
+                }
+            });
+        }
+
+        updateRecommendations();
+
+        $('#save-history').click(function () {
+            const timestamp = new Date().toLocaleString();
+            const chatData = {
+                timestamp: timestamp,
+                messages: messages.filter((msg, index) => {
+                    if (msg.role === 'assistant' && index > 0) {
+                        const prevMsg = messages[index - 1];
+                        return !(prevMsg.role === 'assistant' && prevMsg.content.includes(msg.content));
+                    }
+                    return true;
+                })
+            };
+            $.ajax({
+                url: '/save_chat',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify(chatData),
+                success: function (response) {
+                    loadChats();
+                    location.reload();
+                }
+            });
+        });
+
+        function updateChatHistory(chats) {
+            $('#chat-history').empty();
+            chats.forEach(chat => {
+                const chatItem = $(`
+                    <div class="history-item" data-id="${chat.id}">
+    <span>${chat.timestamp}</span>
+    <div class="dropdown">
+        <button class="dropbtn"></button>
+        <div class="dropdown-content">
+            <a href="#" class="rename-button" data-id="${chat.id}">
+                <span class="icon rename-icon"></span>
+                重命名
+            </a>
+            <a href="#" class="delete-button" data-id="${chat.id}">
+                <span class="icon delete-icon"></span>
+                删除
+            </a>
+        </div>
+    </div>
+</div>
+
+                `);
+                $('#chat-history').append(chatItem);
+            });
+        }
+
+        function loadChats() {
+            $.get('/load_chats', function (response) {
+                updateChatHistory(response.chats);
+            });
+        }
+
+        $('#chat-history').on('click', '.delete-button', function (e) {
+            e.stopPropagation();
+            const chatId = $(this).data('id');
+            $.ajax({
+                url: `/delete_chat/${chatId}`,
+                type: 'DELETE',
+                success: function (response) {
+                    loadChats();
+                }
+            });
+        });
+
+        $('#chat-history').on('click', '.rename-button', function (e) {
+            e.stopPropagation();
+            const chatId = $(this).data('id');
+            const chatItem = $(this).closest('.history-item');
+            const timestampSpan = chatItem.find('span').first(); // 确保找到的是第一个 span
+
+            const currentName = timestampSpan.text();
+            const input = $('<input type="text" class="rename-input">').val(currentName);
+            timestampSpan.replaceWith(input);
+            input.focus();
+
+            input.on('blur keyup', function (e) {
+                if (e.type === 'blur' || (e.type === 'keyup' && e.key === 'Enter')) {
+                    const newName = input.val();
+                    input.replaceWith(`<span>${newName}</span>`);
+
+                    $.ajax({
+                        url: `/rename_chat/${chatId}`,
+                        type: 'POST',
+                        contentType: 'application/json',
+                        data: JSON.stringify({ newName: newName }),
+                        success: function (response) {
+                            loadChats();
+                        }
+                    });
+                }
+            });
+        });
+
+
+        $('#chat-history').on('click', '.history-item', function () {
+            const chatId = $(this).data('id');
+            $.get(`/load_chat/${chatId}`, function (response) {
+                // Clear chat-box and append loaded messages
+                $('#chat-box').empty();
+                response.messages.forEach(msg => {
+                    appendMessage(msg.role, msg.content, msg.isImage, true);
+                });
+            });
+        });
+
+        loadChats();
+
+        socket.on('receive_message', function (data) {
+            if (data.role === 'user') {
+                appendMessage(data.role, data.content, data.isImage, true);
+                isAssistant = true;
+            } else {
+                assistantMessage = data.content;
+                if (isAssistant) {
+                    appendMessage(data.role, assistantMessage, data.isImage, true);
+                    isAssistant = false;
+                } else {
+                    appendMessage(data.role, assistantMessage, data.isImage);
+                }
+            }
+            if (data.role === 'assistant') {
+                const lastMessage = messages[messages.length - 1];
+                if (lastMessage && lastMessage.role === 'assistant') {
+                    lastMessage.content = assistantMessage;
+                } else {
+                    messages.push({role: 'assistant', content: assistantMessage});
+                }
+            } else {
+                messages.push({role: data.role, content: data.content});
+            }
+        });
+
+        $('#input-box').keypress(function (e) {
+            if (e.which === 13) {
+                $('#send-icon').click();
+            }
+        });
+
+        window.playVoice = function (element) {
+            const message = $(element).closest('.message').text();
+            if (audio) {
+                audio.pause();
+                audio = null;
+                $(element).attr('src', '/static/speaker.png');
+            } else {
+                $.post('/text2voice', {text: message}, function (response) {
+                    audio = new Audio(response.audio_url);
+                    audio.play();
+                    $(element).attr('src', '/static/speaker-off.png');
+                    audio.onended = function () {
+                        audio = null;
+                        $(element).attr('src', '/static/speaker.png');
+                    }
+                });
+            }
+        }
+    });
+</script>
 </body>
 </html>

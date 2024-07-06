@@ -9,7 +9,7 @@ def create_message(role, content):
 def stream_model(messages):
     url = "http://localhost:11434/api/chat"
     payload = {
-        "model": "llama3:8b",
+        "model": "llamafamily/llama3-chinese-8b-instruct:latest",
         "messages": messages,
         "stream": True  # 启用流式响应
     }
@@ -31,7 +31,7 @@ def stream_model(messages):
 def request_model(messages):
     url = "http://localhost:11434/api/chat"
     payload = {
-        "model": "llama3:8b",
+        "model": "llamafamily/llama3-chinese-8b-instruct:latest",
         "messages": messages,
         "stream": False
     }

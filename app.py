@@ -1,3 +1,5 @@
+# coding:utf-8
+
 import base64
 import glob
 import json
@@ -11,6 +13,7 @@ from Interact import Llama, Llava  # 导入新的Llava模块
 from tools.recommender import Recommend
 from tools.text2voice import text2voice
 from tools.voice2text import voice2text
+from tools import summaryTitle
 
 # clear_folder()
 
@@ -96,6 +99,37 @@ def recommendations():
     except Exception as e:
         print(Exception)
         return jsonify(error=str(e)), 500
+
+
+@app.route('/rename_chat/<chat_id>', methods=['POST'])
+def rename_chat(chat_id):
+    data = request.json
+    new_name = data.get('newName', '未知时间')
+    chat_file = f"{CACHE_DIR}/{chat_id}.txt"
+    if os.path.exists(chat_file):
+        with open(chat_file, 'r', encoding='utf-8') as f:
+            chat_data = json.load(f)
+        chat_data['timestamp'] = new_name
+        with open(chat_file, 'w', encoding='utf-8') as f:
+            json.dump(chat_data, f, ensure_ascii=False)
+        return jsonify(success=True)
+    else:
+        return jsonify(error="Chat not found"), 404
+
+
+@app.route('/generate_title', methods=['POST'])
+def generate_title():
+    data = request.json
+    messages = data.get("messages", [])
+
+    # 提取用户消息内容
+    user_messages = [msg["content"] for msg in messages if msg["role"] == "user"]
+    q = f"根据以下内容总结一个提问的问题的总结，不需要标点符号，10个字以内：{user_messages}"
+    res = summaryTitle.request_model([summaryTitle.create_message(
+        "user", q)])
+    title = res["message"]["content"]
+
+    return jsonify({"title": title})
 
 
 @socketio.on('send_message')
